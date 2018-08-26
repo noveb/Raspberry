@@ -37,7 +37,6 @@ main () {
 
 }
 
-
 log_initialisation () {
     mkdir -p log
     : > log/oc-val-cpu.log
