@@ -20,23 +20,22 @@ main () {
 
     printf "\n"
 
-    local test_runs=5
-    local max_prime=14713
-    local num_threads=4
+    local test_runs=10
 
     log_initialisation
 
-    test_definition $test_runs $num_threads $max_prime
+    test_definition
 
     local test_start=$(date +%s%N)
-    test_runner "CPU Test" $test_runs
+    test_runner "RAM Test" $test_runs
     local test_end=$(date +%s%N)
 
-    test_summary "CPU" "$(($(($test_end-$test_start)) / 1000000))"
+    test_summary "RAM" "$(($(($test_end-$test_start)) / 1000000))"
 
     exit
 
 }
+
 
 log_initialisation () {
     mkdir -p log
@@ -45,21 +44,27 @@ log_initialisation () {
 }
 
 test_definition () {
-    for((j=1;j<=$1;j++))
-    do
-        test_names[j]="Testing CPU run ${j}"
-        test_commands[j]="sysbench --validate=on --test=cpu --num-threads=${2} --cpu-max-prime=${3} run"
-    done
+    test_names[1]="Testing RAM random write"
+    test_commands[1]="sysbench --validate=on --test=memory --num-threads=4 --memory-block-size=1K --memory-total-size=3G --memory-access-mode=rnd --memory-oper=write run"
+    test_names[2]="Testing RAM random read"
+    test_commands[2]="sysbench --validate=on --test=memory --num-threads=4 --memory-block-size=1K --memory-total-size=3G --memory-access-mode=rnd --memory-oper=read run"
+    test_names[3]="Testing RAM sequential write"
+    test_commands[3]="sysbench --validate=on --test=memory --num-threads=4 --memory-block-size=512M --memory-total-size=3G --memory-access-mode=seq --memory-oper=write run"
+    test_names[4]="Testing RAM sequential read"
+    test_commands[4]="sysbench --validate=on --test=memory --num-threads=4 --memory-block-size=512M --memory-total-size=3G --memory-access-mode=seq --memory-oper=read run"
 }
 
 test_runner () {
     printf "\t${SIGN_RUNNING}\t${1}\n"
-    for((i=1;i<=$2;i++))
+    for((i=1;i<=4;i++))
     do
         printf "\t\t${SIGN_RUNNING}\t${test_names[i]}"
         echo "${test_names[i]}" >> ${logFile}
         local test_start=$(date +%s%N)
-        (${test_commands[i]}) &>>${logFile}
+        for((j=1;j<=$2;j++))
+        do
+            (${test_commands[i]}) &>>${logFile}
+        done
         local test_end=$(date +%s%N)
         local result=$(sed -n "/${test_names[i]}/,//p" ${logFile})
         test_evaluation "${result}" "${test_names[i]}" "$(($(($test_end-$test_start)) / 1000000))"
@@ -81,7 +86,7 @@ test_summary () {
     if [[ "${isFailure}" == "true" ]];
     then printf "\t${SIGN_FAILURE}\t${1} is not OK! There are fatal errors! Runtime ${runtime}\n"
     elif [[ "${isWarning}" == "true" ]];
-    then printf "\t{SIGN_WARNING}\t${1} is maybe not OK! There are warnings! Runtime ${runtime}\n"
+    then printf "\t${SIGN_WARNING}\t${1} is maybe not OK! There are warnings! Runtime ${runtime}\n"
     else printf "\t${SIGN_SUCCESS}\t${1} is OK! Runtime ${runtime}\n"
     fi
 }

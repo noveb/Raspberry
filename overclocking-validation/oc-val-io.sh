@@ -20,19 +20,17 @@ main () {
 
     printf "\n"
 
-    local test_runs=5
-    local max_prime=14713
-    local num_threads=4
+    local total_size="512M"
 
     log_initialisation
 
-    test_definition $test_runs $num_threads $max_prime
+    test_definition $total_size
 
     local test_start=$(date +%s%N)
-    test_runner "CPU Test" $test_runs
+    test_runner "File IO Test"
     local test_end=$(date +%s%N)
 
-    test_summary "CPU" "$(($(($test_end-$test_start)) / 1000000))"
+    test_summary "File IO" "$(($(($test_end-$test_start)) / 1000000))"
 
     exit
 
@@ -44,17 +42,25 @@ log_initialisation () {
     logFile=log/oc-val-cpu.log
 }
 
+
 test_definition () {
-    for((j=1;j<=$1;j++))
-    do
-        test_names[j]="Testing CPU run ${j}"
-        test_commands[j]="sysbench --validate=on --test=cpu --num-threads=${2} --cpu-max-prime=${3} run"
-    done
+    test_names[0]="Preparing test files ${1}"
+    test_commands[0]="sysbench --validate=on --test=fileio --file-total-size=${1} prepare"
+    test_names[1]="Testing sequential write ${1}"
+    test_commands[1]="sysbench --validate=on --test=fileio --file-test-mode=seqwr --file-total-size=${1} run"
+    test_names[2]="Testing sequential read ${1}"
+    test_commands[2]="sysbench --validate=on --test=fileio --file-test-mode=seqrd --file-total-size=${1} run"
+    test_names[3]="Testing random write ${1}"
+    test_commands[3]="sysbench --validate=on --test=fileio --file-test-mode=rndwr --file-total-size=${1} run"
+    test_names[4]="Testing random read ${1}"
+    test_commands[4]="sysbench --validate=on --test=fileio --file-test-mode=rndrd --file-total-size=${1} run"
+    test_names[5]="Cleaning up test files ${1}"
+    test_commands[5]="sysbench --validate=on --test=fileio --file-total-size=${1} cleanup"
 }
 
 test_runner () {
     printf "\t${SIGN_RUNNING}\t${1}\n"
-    for((i=1;i<=$2;i++))
+    for((i=1;i<=5;i++))
     do
         printf "\t\t${SIGN_RUNNING}\t${test_names[i]}"
         echo "${test_names[i]}" >> ${logFile}
@@ -81,7 +87,7 @@ test_summary () {
     if [[ "${isFailure}" == "true" ]];
     then printf "\t${SIGN_FAILURE}\t${1} is not OK! There are fatal errors! Runtime ${runtime}\n"
     elif [[ "${isWarning}" == "true" ]];
-    then printf "\t{SIGN_WARNING}\t${1} is maybe not OK! There are warnings! Runtime ${runtime}\n"
+    then printf "\t${SIGN_WARNING}\t${1} is maybe not OK! There are warnings! Runtime ${runtime}\n"
     else printf "\t${SIGN_SUCCESS}\t${1} is OK! Runtime ${runtime}\n"
     fi
 }
